@@ -41,3 +41,15 @@ docs/producer_config.html
 docs/consumer_config.html
 docs/kafka_config.html
 docs/connect_config.html
+
+clients/bin/
+connect/api/bin/
+connect/file/bin/
+connect/json/bin/
+connect/runtime/bin/
+core/.cache-main
+core/.cache-tests
+core/bin/
+examples/bin/main/
+log4j-appender/bin/
+tools/bin/

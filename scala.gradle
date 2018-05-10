@@ -24,3 +24,8 @@ if (scalaVersion.startsWith('2.10')) {
 } else {
     ext.baseScalaVersion = scalaVersion
 }
+
+ScalaCompileOptions.metaClass.daemonServer = true  
+ScalaCompileOptions.metaClass.fork = true  
+ScalaCompileOptions.metaClass.useAnt = false  
+ScalaCompileOptions.metaClass.useCompileDaemon = false
