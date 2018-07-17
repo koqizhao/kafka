@@ -425,29 +425,39 @@ private[kafka] class Processor(val id: Int,
               channel.socketAddress)
             val req = RequestChannel.Request(processor = id, connectionId = receive.source, session = session, buffer = receive.payload, startTimeMs = time.milliseconds, securityProtocol = protocol)
             requestChannel.sendRequest(req)
+            selector.mute(receive.source)
           } catch {
-            case e @ (_: InvalidRequestException | _: SchemaException) =>
+            case e : Exception =>
               // note that even though we got an exception, we can assume that receive.source is valid. Issues with constructing a valid receive object were handled earlier
               error("Closing socket for " + receive.source + " because of error", e)
               close(selector, receive.source)
           }
-          selector.mute(receive.source)
         }
 
         selector.completedSends.asScala.foreach { send =>
-          val resp = inflightResponses.remove(send.destination).getOrElse {
-            throw new IllegalStateException(s"Send for ${send.destination} completed, but not in `inflightResponses`")
+          try {
+            val resp = inflightResponses.remove(send.destination).getOrElse {
+              throw new IllegalStateException(s"Send for ${send.destination} completed, but not in `inflightResponses`")
+            }
+            resp.request.updateRequestMetrics()
+            selector.unmute(send.destination)
+          } catch {
+            case e: Exception =>
+              error("unexpected exception when complete sends", e)
           }
-          resp.request.updateRequestMetrics()
-          selector.unmute(send.destination)
         }
 
         selector.disconnected.asScala.foreach { connectionId =>
-          val remoteHost = ConnectionId.fromString(connectionId).getOrElse {
-            throw new IllegalStateException(s"connectionId has unexpected format: $connectionId")
-          }.remoteHost
-          // the channel has been closed by the selector but the quotas still need to be updated
-          connectionQuotas.dec(InetAddress.getByName(remoteHost))
+          try {
+            val remoteHost = ConnectionId.fromString(connectionId).getOrElse {
+              throw new IllegalStateException(s"connectionId has unexpected format: $connectionId")
+            }.remoteHost
+            // the channel has been closed by the selector but the quotas still need to be updated
+            connectionQuotas.dec(InetAddress.getByName(remoteHost))
+          } catch {
+            case e : Exception =>
+              error("unexpected exception when handling disconnected", e)
+          }
         }
 
       } catch {
